@@ -5,3 +5,4 @@ lanchonete.db
 .env
 .pytest_cache/
 alembic/versions/__pycache__/
+tmp/
