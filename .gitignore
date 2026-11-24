@@ -6,3 +6,5 @@ lanchonete.db
 .pytest_cache/
 alembic/versions/__pycache__/
 tmp/
+
+/Trabalho Final*.pdf
