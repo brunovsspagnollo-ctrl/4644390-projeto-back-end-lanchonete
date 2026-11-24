@@ -1,0 +1,696 @@
+{
+  "info": {
+    "name": "API Rede Raízes do Nordeste - Roteiro de validação",
+    "description": "21 chamadas encadeadas: 13 cenarios positivos e 8 negativos. Execute na ordem. Configure base_url e credenciais ADMIN conforme o arquivo .env.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "admin_password",
+      "value": "TroqueEstaSenha123!"
+    },
+    {
+      "key": "client_email",
+      "value": ""
+    },
+    {
+      "key": "client_password",
+      "value": "SenhaCliente123!"
+    },
+    {
+      "key": "admin_token",
+      "value": ""
+    },
+    {
+      "key": "client_token",
+      "value": ""
+    },
+    {
+      "key": "order_id",
+      "value": ""
+    },
+    {
+      "key": "declined_order_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Autenticacao",
+      "item": [
+        {
+          "name": "T01 - Login administrador (positivo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{admin_email}}\",\"password\":\"{{admin_password}}\"}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T01 status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json(); pm.collectionVariables.set('admin_token', j.access_token);",
+                  "pm.test('T01 token e perfil', () => { pm.expect(j.access_token).to.be.a('string'); pm.expect(j.user.role).to.eql('ADMIN'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T02 - Cadastro de cliente consentido (positivo)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('client_email', 'cliente.' + Date.now() + '@example.com');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T02 status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('T02 nao expoe hash', () => pm.expect(pm.response.text()).not.to.include('password_hash'));",
+                  "pm.test('T02 consentimento registrado', () => pm.expect(pm.response.json().loyalty_consent).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Cliente de Demonstracao\",\"email\":\"{{client_email}}\",\"password\":\"{{client_password}}\",\"loyalty_consent\":true}"
+            },
+            "url": "{{base_url}}/auth/register"
+          }
+        },
+        {
+          "name": "T03 - Login do cliente (positivo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{client_email}}\",\"password\":\"{{client_password}}\"}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T03 status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('client_token', pm.response.json().access_token);",
+                  "pm.test('T03 perfil CLIENTE', () => pm.expect(pm.response.json().user.role).to.eql('CLIENTE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T04 - Login com senha incorreta (negativo 401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{client_email}}\",\"password\":\"errada\"}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T04 status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('T04 erro padronizado', () => pm.expect(pm.response.json()).to.have.all.keys('error','message','details','timestamp','path','requestId'));",
+                  "pm.test('T04 codigo de erro', () => pm.expect(pm.response.json().error).to.eql('NAO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cardapio e autorizacao",
+      "item": [
+        {
+          "name": "T05 - Consultar cardapio da unidade (positivo)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/catalog/1?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T05 status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('T05 lista mostra preco e saldo', () => { const j=pm.response.json(); pm.expect(j.length).to.be.above(0); pm.expect(j[0]).to.have.property('price_cents'); pm.expect(j[0]).to.have.property('stock'); });",
+                  "const produto1 = pm.response.json().find(item => item.product_id === 1); pm.collectionVariables.set('produto1_stock_antes_t08', produto1.stock);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T06 - Cliente sem permissao para estoque (negativo 403)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              }
+            ],
+            "url": "{{base_url}}/stock?unit_id=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T06 status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('T06 erro padronizado', () => pm.expect(pm.response.json().error).to.eql('SEM_PERMISSAO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T07 - Requisicao sem token (negativo 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/units?page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T07 status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('T07 erro padronizado', () => pm.expect(pm.response.json().error).to.eql('NAO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pedidos e pagamentos",
+      "item": [
+        {
+          "name": "T08 - Repor estoque da unidade (positivo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unit_id\":1,\"product_id\":1,\"movement_type\":\"ENTRADA\",\"quantity\":10,\"reason\":\"Preparacao do roteiro Postman\"}"
+            },
+            "url": "{{base_url}}/stock/movements"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T08 status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('T08 saldo aumentou em 10', () => pm.expect(pm.response.json().quantity).to.eql(Number(pm.collectionVariables.get('produto1_stock_antes_t08')) + 10));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T09 - Criar pedido APP com idempotencia (positivo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "pedido-demo-{{client_email}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unit_id\":1,\"canalPedido\":\"APP\",\"items\":[{\"product_id\":1,\"quantity\":1}]}"
+            },
+            "url": "{{base_url}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T09 status 201', () => pm.response.to.have.status(201));",
+                  "const j=pm.response.json(); pm.collectionVariables.set('order_id', j.id);",
+                  "pm.test('T09 canal, status e total', () => { pm.expect(j.canalPedido).to.eql('APP'); pm.expect(j.status).to.eql('AGUARDANDO_PAGAMENTO'); pm.expect(j.total_cents).to.be.above(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T10 - Criar pedido sem canalPedido (negativo 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "pedido-sem-canal-123"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unit_id\":1,\"items\":[{\"product_id\":1,\"quantity\":1}]}"
+            },
+            "url": "{{base_url}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T10 status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('T10 formato padronizado', () => pm.expect(pm.response.json()).to.have.property('requestId'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T11 - Produto inexistente (negativo 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "produto-ausente-123"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unit_id\":1,\"canalPedido\":\"WEB\",\"items\":[{\"product_id\":99999,\"quantity\":1}]}"
+            },
+            "url": "{{base_url}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T11 status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('T11 erro padronizado', () => pm.expect(pm.response.json().error).to.eql('NAO_ENCONTRADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T12 - Estoque insuficiente (negativo 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "sem-estoque-123"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unit_id\":1,\"canalPedido\":\"TOTEM\",\"items\":[{\"product_id\":2,\"quantity\":99}]}"
+            },
+            "url": "{{base_url}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T12 status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('T12 erro padronizado', () => pm.expect(pm.response.json().error).to.eql('CONFLITO_REGRA_NEGOCIO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T13 - Pagar pedido aprovado via mock (positivo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"outcome\":\"APROVADO\",\"payment_method\":\"PIX_MOCK\"}"
+            },
+            "url": "{{base_url}}/payments/{{order_id}}/mock"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T13 status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('T13 gateway mock aprovado', () => { const j=pm.response.json(); pm.expect(j.status).to.eql('APROVADO'); pm.expect(j.provider).to.eql('GATEWAY_MOCK'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T14 - Consultar pedidos pelo canalPedido (positivo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              }
+            ],
+            "url": "{{base_url}}/orders?canalPedido=APP&status=PAGO&page=1&limit=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T14 status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('T14 pedido filtrado por canal', () => { const j=pm.response.json(); pm.expect(j.some(o=>o.id===Number(pm.collectionVariables.get('order_id')))).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T15 - Saldo de fidelidade (positivo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              }
+            ],
+            "url": "{{base_url}}/loyalty/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T15 status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('T15 consentimento habilitou saldo', () => { const j=pm.response.json(); pm.expect(j.enrolled).to.eql(true); pm.expect(j.points).to.be.a('number'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T16 - Criar pedido para pagamento recusado (positivo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "pedido-recusa-{{client_email}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unit_id\":1,\"canalPedido\":\"TOTEM\",\"items\":[{\"product_id\":2,\"quantity\":1}]}"
+            },
+            "url": "{{base_url}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T16 status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('declined_order_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T17 - Pagamento recusado e pedido cancelado (negativo de negocio)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"outcome\":\"RECUSADO\",\"payment_method\":\"PIX_MOCK\"}"
+            },
+            "url": "{{base_url}}/payments/{{declined_order_id}}/mock"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T17 simulador registra recusado', () => { pm.response.to.have.status(201); pm.expect(pm.response.json().status).to.eql('RECUSADO'); });",
+                  "pm.test('T17 pedido finalizado como cancelado', () => { const j=pm.response.json(); pm.expect(j.response_payload).to.include('Pagamento recusado'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T18 - Consultar pedido e conferir cancelamento (positivo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              }
+            ],
+            "url": "{{base_url}}/orders/{{declined_order_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T18 status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('T18 status cancelado', () => pm.expect(pm.response.json().status).to.eql('CANCELADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T19 - Verificar auditoria do pedido (positivo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": "{{base_url}}/audit?page=1&limit=100"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T19 status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('T19 registra acoes sensiveis', () => { const j=pm.response.json(); pm.expect(j.some(e=>e.action==='PEDIDO_CRIADO')).to.eql(true); pm.expect(j.some(e=>e.action==='PAGAMENTO_MOCK')).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T20 - Revogar consentimento de fidelidade (positivo)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"consent\":false}"
+            },
+            "url": "{{base_url}}/loyalty/consent"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('T20 status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('T20 consentimento revogado e pontos removidos', () => { const j=pm.response.json(); pm.expect(j.loyalty_consent).to.eql(false); pm.expect(j.points).to.eql(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "T21 - Quantidade negativa (negativo 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{client_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "quantidade-invalida-{{client_email}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"unit_id\":1,\"canalPedido\":\"APP\",\"items\":[{\"product_id\":1,\"quantity\":-1}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('T21 status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('T21 erro padronizado de validacao', () => pm.expect(pm.response.json().error).to.eql('VALIDACAO'));",
+                  "pm.test('T21 formato comum de erro', () => pm.expect(pm.response.json()).to.have.all.keys('error','message','details','timestamp','path','requestId'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

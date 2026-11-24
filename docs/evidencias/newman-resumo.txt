@@ -1,0 +1,6 @@
+Execução automatizada da API da Rede Raízes do Nordeste
+Requisições executadas: 21
+Assertions executadas: 44
+Assertions com falha: 0
+Resultado: APROVADO
+Tokens de acesso e senhas foram removidos do arquivo JSON de evidência.
