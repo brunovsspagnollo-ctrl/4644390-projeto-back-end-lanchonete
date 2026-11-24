@@ -110,7 +110,9 @@ Códigos centrais: `200` sucesso, `201` criação, `204` anonimização, `401` s
 
 Importe `postman/Trabalho_Lanchonete.postman_collection.json`, confira as variáveis de administrador e execute as chamadas em ordem. A coleção inclui 21 chamadas com 13 cenários positivos e 8 negativos: login, cadastro, consulta, movimentação de estoque, pedido, pagamento aprovado/recusado, filtro por canal, saldo de fidelidade, auditoria, revogação de consentimento, ausência de token, perfil sem permissão, dois casos de validação, produto ausente e estoque insuficiente. As verificações estão organizadas nas pastas Autenticacao, Cardapio e autorizacao, e Pedidos e pagamentos.
 
-Os cenários foram executados localmente pelo Newman: 21 requisições, 44 assertions aprovadas e 0 falhas. O relatório completo está em `docs/evidencias/newman-run.json`. Para repetir pelo Postman, inicie a API e use o Collection Runner em ordem. Para repetir pelo Newman, instale Node.js e Newman e execute `newman run postman/Trabalho_Lanchonete.postman_collection.json --reporters cli,json --reporter-json-export docs/evidencias/newman-run.json`. O cliente recebe e-mail aleatório em domínio reservado `example.com` a cada execução.
+Os cenários foram executados localmente pelo Newman: 21 requisições, 44 assertions aprovadas e 0 falhas. O relatório completo está em [evidências/newman-run.json](evid%C3%AAncias/newman-run.json) e o resumo em [evidências/newman-resumo.txt](evid%C3%AAncias/newman-resumo.txt). Para repetir pelo Postman, inicie a API e use o Collection Runner em ordem. Para repetir pelo Newman, instale Node.js e Newman e execute `newman run postman/Trabalho_Lanchonete.postman_collection.json --reporters cli,json --reporter-json-export evidências/newman-run.json`. O cliente recebe e-mail aleatório em domínio reservado `example.com` a cada execução.
+
+Os prints complementares da execução estão na [pasta de evidências](evid%C3%AAncias/Prints/), incluindo respostas do Swagger, pagamentos, estoque, fidelidade e auditoria.
 
 ## Segurança, LGPD e limites
 
@@ -124,7 +126,7 @@ Senhas são armazenadas com PBKDF2-HMAC-SHA256 e salt aleatório. O token JWT as
 app/                 API, schemas, domínio, aplicação e persistência
 alembic/             migração inicial
 postman/             coleção importável com cenários e assertions
-docs/                relatório acadêmico editável e evidências de execução
+evidências/          prints da API e relatórios de execução Newman
 requirements.txt     dependências
 .env.example         variáveis de configuração
 ```
@@ -133,4 +135,4 @@ requirements.txt     dependências
 
 Repositório público do projeto: https://github.com/brunovsspagnollo-ctrl/4644390-projeto-back-end-lanchonete
 
-O repositório contém o código-fonte, a coleção Postman, os diagramas, o relatório e as evidências de teste. Não há deploy incluído. O Swagger local funciona em `http://127.0.0.1:8000/docs` enquanto a API estiver rodando.
+O repositório contém o código-fonte, a coleção Postman e as evidências de teste. Não há deploy incluído. O Swagger local funciona em `http://127.0.0.1:8000/docs` enquanto a API estiver rodando.
